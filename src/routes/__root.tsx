@@ -29,14 +29,18 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Job Vacancies Deanna Day Spa" },
+      { name: "description", content: "Displays job vacancies with a clean, mobile-app aesthetic and integrated navigation." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Job Vacancies Deanna Day Spa" },
+      { property: "og:description", content: "Displays job vacancies with a clean, mobile-app aesthetic and integrated navigation." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Job Vacancies Deanna Day Spa" },
+      { name: "twitter:description", content: "Displays job vacancies with a clean, mobile-app aesthetic and integrated navigation." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/162b2909-b33e-413c-a07d-f1b6b4a87558/id-preview-c137ed59--0bd93a2f-d8be-411f-b928-0174e00baf67.lovable.app-1777059117507.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/162b2909-b33e-413c-a07d-f1b6b4a87558/id-preview-c137ed59--0bd93a2f-d8be-411f-b928-0174e00baf67.lovable.app-1777059117507.png" },
     ],
     links: [
       {
