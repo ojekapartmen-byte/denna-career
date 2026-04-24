@@ -132,23 +132,6 @@ function VacanciesListPage() {
           ))}
         </div>
 
-        {/* Footer CTA */}
-        <div className="mt-12 text-center">
-          <p className="text-base text-neutral-700">For enquiries, contact:</p>
-          <p className="text-base font-bold mt-1" style={{ color: BLUE }}>
-            WhatsApp: +62 813-2543-072
-          </p>
-          <a
-            href={WHATSAPP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-white font-bold uppercase tracking-wide text-sm shadow-lg"
-            style={{ backgroundColor: BLUE }}
-          >
-            <MessageCircle className="h-5 w-5" />
-            Apply via WhatsApp
-          </a>
-        </div>
       </main>
     </div>
   );
