@@ -285,7 +285,7 @@ function VacancyDetailPage() {
               <h2 className="text-lg font-semibold text-neutral-900">Responsibilities</h2>
             </div>
             <div className="space-y-3">
-              {vacancy.responsibilities.map((r, i) => (
+              {vacancy.responsibilities.map((r: string, i: number) => (
                 <ResponsibilityRow key={i}>{r}</ResponsibilityRow>
               ))}
             </div>
