@@ -1,4 +1,5 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ChevronDown,
@@ -13,42 +14,16 @@ import {
   Calendar,
   DollarSign,
   Award,
-  Users,
-  TrendingUp,
-  Gift,
   ClipboardList,
   Info,
+  Loader2,
 } from "lucide-react";
-import { getVacancy, VACANCIES } from "@/data/vacancies";
+import { supabase } from "@/integrations/supabase/client";
+import type { Vacancy } from "@/lib/vacancy";
+import { formatDate } from "@/lib/vacancy";
 
 export const Route = createFileRoute("/vacancies/$slug")({
-  loader: ({ params }) => {
-    const vacancy = getVacancy(params.slug);
-    if (!vacancy) throw notFound();
-    return { vacancy };
-  },
-  head: ({ loaderData }) => {
-    const v = loaderData?.vacancy;
-    const title = v ? `${v.title} — Deanna Day Spa Careers` : "Vacancy — Deanna Day Spa";
-    const desc = v?.intro ?? "Open vacancy at Deanna Day Spa Bali.";
-    return {
-      meta: [
-        { title },
-        { name: "description", content: desc },
-        { property: "og:title", content: title },
-        { property: "og:description", content: desc },
-      ],
-    };
-  },
   component: VacancyDetailPage,
-  notFoundComponent: () => (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center">
-      <h1 className="text-2xl font-bold">Vacancy not found</h1>
-      <Link to="/" className="underline" style={{ color: "#1DA1F2" }}>
-        ← Back to vacancies
-      </Link>
-    </div>
-  ),
 });
 
 const BLUE = "#1DA1F2";
@@ -100,19 +75,16 @@ function DetailRow({
   icon,
   label,
   value,
-  hint,
 }: {
   icon: React.ReactNode;
   label: string;
   value: React.ReactNode;
-  hint?: boolean;
 }) {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-neutral-500">
         <span style={{ color: BLUE }}>{icon}</span>
         <span>{label}</span>
-        {hint && <Info className="h-3.5 w-3.5 text-neutral-400" />}
       </div>
       <div className="mt-1 text-[15px] font-semibold text-neutral-900">{value}</div>
     </div>
@@ -120,16 +92,69 @@ function DetailRow({
 }
 
 function VacancyDetailPage() {
-  const { vacancy } = Route.useLoaderData();
-  const idx = VACANCIES.findIndex((v) => v.slug === vacancy.slug);
-  const total = VACANCIES.length;
-  const prev = VACANCIES[(idx - 1 + total) % total];
-  const next = VACANCIES[(idx + 1) % total];
+  const { slug } = Route.useParams();
+  const navigate = useNavigate();
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [siblings, setSiblings] = useState<Vacancy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("vacancies").select("*").eq("slug", slug).maybeSingle(),
+      supabase
+        .from("vacancies")
+        .select("*")
+        .eq("status", "open")
+        .order("sort_order", { ascending: true }),
+    ]).then(([detail, list]) => {
+      if (!active) return;
+      setVacancy((detail.data as Vacancy) ?? null);
+      setSiblings((list.data as Vacancy[]) ?? []);
+      setLoading(false);
+      if (detail.data?.title) {
+        document.title = `${detail.data.title} — Deanna Day Spa Careers`;
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: CREAM }}
+      >
+        <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+      </div>
+    );
+  }
+
+  if (!vacancy) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center"
+        style={{ backgroundColor: CREAM }}
+      >
+        <h1 className="text-2xl font-bold">Vacancy not found</h1>
+        <Link to="/" className="underline" style={{ color: BLUE }}>
+          ← Back to vacancies
+        </Link>
+      </div>
+    );
+  }
+
+  const idx = siblings.findIndex((v) => v.slug === vacancy.slug);
+  const total = siblings.length || 1;
+  const prev = siblings[(idx - 1 + total) % total] ?? vacancy;
+  const next = siblings[(idx + 1) % total] ?? vacancy;
   const wa = whatsappUrl(vacancy.title);
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: CREAM }}>
-      {/* Top Bar */}
       <header
         className="w-full border-b sticky top-0 z-20 backdrop-blur"
         style={{ borderColor: BORDER, backgroundColor: "rgba(253,252,240,0.92)" }}
@@ -151,27 +176,27 @@ function VacancyDetailPage() {
             <ChevronDown className="h-5 w-5 text-neutral-500 flex-shrink-0" />
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 ml-3">
-            <Link
-              to="/vacancies/$slug"
-              params={{ slug: prev.slug }}
-              className="h-8 px-3 rounded-full border bg-white inline-flex items-center justify-center text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-              style={{ borderColor: BORDER }}
-            >
-              ← Prev
-            </Link>
-            <Link
-              to="/vacancies/$slug"
-              params={{ slug: next.slug }}
-              className="h-8 px-3 rounded-full border bg-white inline-flex items-center justify-center text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-              style={{ borderColor: BORDER }}
-            >
-              Next →
-            </Link>
-            <span className="text-sm text-neutral-500 ml-1">
-              {idx + 1} of {total}
-            </span>
-          </div>
+          {siblings.length > 1 && (
+            <div className="hidden sm:flex items-center gap-2 ml-3">
+              <button
+                onClick={() => navigate({ to: "/vacancies/$slug", params: { slug: prev.slug } })}
+                className="h-8 px-3 rounded-full border bg-white inline-flex items-center justify-center text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                style={{ borderColor: BORDER }}
+              >
+                ← Prev
+              </button>
+              <button
+                onClick={() => navigate({ to: "/vacancies/$slug", params: { slug: next.slug } })}
+                className="h-8 px-3 rounded-full border bg-white inline-flex items-center justify-center text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                style={{ borderColor: BORDER }}
+              >
+                Next →
+              </button>
+              <span className="text-sm text-neutral-500 ml-1">
+                {idx + 1} of {total}
+              </span>
+            </div>
+          )}
 
           <div className="flex-1" />
 
@@ -199,19 +224,15 @@ function VacancyDetailPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-white text-sm font-medium"
             style={{ backgroundColor: BLUE }}
           >
-            Open
+            {vacancy.status === "open" ? "Open" : "Closed"}
           </span>
           <span className="text-neutral-300">·</span>
           <span className="inline-flex items-center gap-1.5 text-sm text-neutral-700">
-            <Sparkles className="h-3.5 w-3.5" style={{ color: BLUE }} /> Spa
+            <Sparkles className="h-3.5 w-3.5" style={{ color: BLUE }} /> {vacancy.department}
           </span>
           <span className="text-neutral-300">·</span>
           <span className="inline-flex items-center gap-1.5 text-sm text-neutral-700">
             <MapPin className="h-3.5 w-3.5" style={{ color: BLUE }} /> Onsite
-          </span>
-          <span className="text-neutral-300">·</span>
-          <span className="inline-flex items-center gap-1.5 text-sm text-neutral-700">
-            <User className="h-3.5 w-3.5" style={{ color: BLUE }} /> Posted by HR
           </span>
         </div>
 
@@ -230,6 +251,21 @@ function VacancyDetailPage() {
         </div>
       </header>
 
+      {vacancy.cover_image_url && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5">
+          <div
+            className="aspect-[16/6] w-full rounded-2xl overflow-hidden border"
+            style={{ borderColor: BORDER }}
+          >
+            <img
+              src={vacancy.cover_image_url}
+              alt={vacancy.title}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
           <Card>
@@ -243,12 +279,16 @@ function VacancyDetailPage() {
               <div className="flex items-center gap-6">
                 <div>
                   <div className="text-xs text-neutral-500">Posted at</div>
-                  <div className="text-base font-semibold text-neutral-900">{vacancy.postedAt}</div>
+                  <div className="text-base font-semibold text-neutral-900">
+                    {formatDate(vacancy.posted_at)}
+                  </div>
                 </div>
                 <div className="text-neutral-400">→</div>
                 <div>
                   <div className="text-xs text-neutral-500">Closes at</div>
-                  <div className="text-base font-semibold text-neutral-900">{vacancy.closesAt}</div>
+                  <div className="text-base font-semibold text-neutral-900">
+                    {formatDate(vacancy.closes_at)}
+                  </div>
                 </div>
               </div>
               <span
@@ -259,12 +299,6 @@ function VacancyDetailPage() {
                 Open until filled
               </span>
             </div>
-            <div
-              className="mt-4 h-1.5 rounded-full overflow-hidden"
-              style={{ backgroundColor: "rgba(29,161,242,0.15)" }}
-            >
-              <div className="h-full w-1/3" style={{ backgroundColor: BLUE }} />
-            </div>
           </Card>
 
           <Card>
@@ -274,22 +308,26 @@ function VacancyDetailPage() {
               </IconCircle>
               <h2 className="text-lg font-semibold text-neutral-900">About this job</h2>
             </div>
-            <p className="text-[15px] text-neutral-700 leading-relaxed">{vacancy.longIntro}</p>
+            <p className="text-[15px] text-neutral-700 leading-relaxed whitespace-pre-line">
+              {vacancy.long_intro || vacancy.intro}
+            </p>
           </Card>
 
-          <Card>
-            <div className="flex items-center gap-2 mb-4">
-              <IconCircle>
-                <ClipboardList className="h-4 w-4" />
-              </IconCircle>
-              <h2 className="text-lg font-semibold text-neutral-900">Responsibilities</h2>
-            </div>
-            <div className="space-y-3">
-              {vacancy.responsibilities.map((r: string, i: number) => (
-                <ResponsibilityRow key={i}>{r}</ResponsibilityRow>
-              ))}
-            </div>
-          </Card>
+          {vacancy.responsibilities.length > 0 && (
+            <Card>
+              <div className="flex items-center gap-2 mb-4">
+                <IconCircle>
+                  <ClipboardList className="h-4 w-4" />
+                </IconCircle>
+                <h2 className="text-lg font-semibold text-neutral-900">Responsibilities</h2>
+              </div>
+              <div className="space-y-3">
+                {vacancy.responsibilities.map((r, i) => (
+                  <ResponsibilityRow key={i}>{r}</ResponsibilityRow>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-5">
@@ -303,76 +341,58 @@ function VacancyDetailPage() {
               />
               <DetailRow
                 icon={<Building2 className="h-4 w-4" />}
-                label="Job placement"
-                value="Onsite"
+                label="Department"
+                value={vacancy.department}
               />
               <div className="grid grid-cols-2 gap-4">
                 <DetailRow
                   icon={<Clock className="h-4 w-4" />}
                   label="Type"
                   value={vacancy.type}
-                  hint
                 />
                 <DetailRow
                   icon={<User className="h-4 w-4" />}
                   label="Reports to"
-                  value={vacancy.reportsTo}
-                  hint
+                  value={vacancy.reports_to || "—"}
                 />
               </div>
               <DetailRow
                 icon={<Award className="h-4 w-4" />}
                 label="Experience"
-                value={vacancy.experience}
+                value={vacancy.experience || "—"}
               />
               <DetailRow
                 icon={<DollarSign className="h-4 w-4" />}
                 label="Salary"
-                value={vacancy.salary}
+                value={vacancy.salary || "Competitive"}
               />
               <DetailRow
                 icon={<MapPin className="h-4 w-4" />}
                 label="Location"
                 value={
                   <span className="font-semibold text-neutral-900 leading-snug block">
-                    Deanna Day Spa, Seminyak,
-                    <br />
-                    Kuta, Kabupaten Badung, Bali
+                    {vacancy.location}
                   </span>
                 }
               />
             </div>
           </Card>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">Why Deanna Spa?</h3>
-            <ul className="space-y-3 text-[15px] text-neutral-700">
-              <li className="flex items-center gap-3">
-                <IconCircle>
-                  <Sparkles className="h-4 w-4" />
-                </IconCircle>
-                Premium Work Environment
-              </li>
-              <li className="flex items-center gap-3">
-                <IconCircle>
-                  <TrendingUp className="h-4 w-4" />
-                </IconCircle>
-                Professional Growth Opportunities
-              </li>
-              <li className="flex items-center gap-3">
-                <IconCircle>
-                  <Gift className="h-4 w-4" />
-                </IconCircle>
-                Competitive Benefits Package
-              </li>
-              <li className="flex items-center gap-3">
-                <IconCircle>
-                  <Users className="h-4 w-4" />
-                </IconCircle>
-                Supportive Team Culture
-              </li>
-            </ul>
-          </Card>
+          {vacancy.benefits.length > 0 && (
+            <Card>
+              <h3 className="text-lg font-semibold text-neutral-900 mb-4">Why Deanna Spa?</h3>
+              <ul className="space-y-3 text-[15px] text-neutral-700">
+                {vacancy.benefits.map((b, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <IconCircle>
+                      <Sparkles className="h-4 w-4" />
+                    </IconCircle>
+                    {b}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <a
             href={wa}
